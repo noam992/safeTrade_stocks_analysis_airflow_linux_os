@@ -1,0 +1,5 @@
+venv/
+assets/
+logs/
+**/__pycache__/
+*.py[cod]
