@@ -37,7 +37,8 @@ ENV DISPLAY_HEIGHT=1080
 # Create Airflow directories and set permissions
 RUN mkdir -p /opt/airflow/{logs,plugins,dags,assets} \
     && chown -R airflow:root /opt/airflow \
-    && chmod -R 777 /opt/airflow
+    && chmod -R 777 /opt/airflow \
+    && chmod -R 777 /opt/airflow/assets
 
 USER airflow
 
