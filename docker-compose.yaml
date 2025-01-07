@@ -79,13 +79,14 @@ x-airflow-common:
 
 services:
   postgres:
+    container_name: ${CONTAINER_PREFIX:-prod}-airflow-postgres
     image: postgres:13
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - ${POSTGRES_VOLUME_NAME:-postgres-db-volume}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 5s
@@ -93,9 +94,10 @@ services:
     restart: always
 
   redis:
+    container_name: ${CONTAINER_PREFIX:-prod}-airflow-redis
     image: redis:latest
-    expose:
-      - 6379
+    ports:
+      - ${REDIS_PORT:-6379}:6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -104,10 +106,11 @@ services:
     restart: always
 
   airflow-webserver:
+    container_name: ${CONTAINER_PREFIX:-prod}-airflow-webserver
     <<: *airflow-common
     command: webserver
     ports:
-      - 8080:8080
+      - ${WEBSERVER_PORT:-8080}:8080
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 10s
@@ -263,12 +266,13 @@ services:
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
   # See: https://docs.docker.com/compose/profiles/
   flower:
+    container_name: ${CONTAINER_PREFIX:-prod}-airflow-flower
     <<: *airflow-common
     command: celery flower
     profiles:
       - flower
     ports:
-      - 5555:5555
+      - ${FLOWER_PORT:-5555}:5555
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
       interval: 10s
@@ -282,3 +286,4 @@ services:
 
 volumes:
   postgres-db-volume:
+    name: ${POSTGRES_VOLUME_NAME:-postgres-db-volume}
