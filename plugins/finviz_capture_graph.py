@@ -194,11 +194,29 @@ def capture_single_finviz_graph(ticker: str, image_folder: str):
     chrome_options.add_argument(f"--force-device-scale-factor={chrome_zoom}")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument(f'--display={os.environ["DISPLAY"]}')
+    chrome_options.add_argument('--disable-features=NetworkService')
+    chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+    chrome_options.page_load_strategy = 'eager'
 
     driver = None
     try:
         driver = webdriver.Chrome(options=chrome_options)
-        driver.get(f"https://finviz.com/quote.ashx?t={ticker}&ty=c&p=d&b=1")
+        driver.set_page_load_timeout(300)
+        driver.set_script_timeout(300)
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                driver.get(f"https://finviz.com/quote.ashx?t={ticker}&ty=c&p=d&b=1")
+                break
+            except Exception as e:
+                retry_count += 1
+                if retry_count == max_retries:
+                    raise
+                logging.warning(f"Attempt {retry_count} failed for {ticker}. Retrying... Error: {str(e)}")
+                time.sleep(5)  # Wait before retrying
 
         # close_popup_privacy(driver)
 
@@ -222,11 +240,17 @@ def capture_single_finviz_graph(ticker: str, image_folder: str):
         raise AirflowException(error_msg)
     finally:
         if driver:
-            driver.quit()
+            try:
+                driver.quit()
+            except Exception as e:
+                logging.warning(f"Error closing driver: {str(e)}")
         # Clean up Xvfb
         if 'xvfb_process' in locals():
-            xvfb_process.terminate()
-            xvfb_process.wait()
+            try:
+                xvfb_process.terminate()
+                xvfb_process.wait(timeout=5)
+            except Exception as e:
+                logging.warning(f"Error terminating Xvfb: {str(e)}")
 
 
 def main(filename: str, image_folder: str):
@@ -242,29 +266,44 @@ def main(filename: str, image_folder: str):
         for col in new_columns:
             stocks_df[col] = None
 
+        failed_tickers = []
         for index, row in stocks_df.iterrows():
             ticker_name = row['Ticker']
-            current_date = (pd.Timestamp.now(tz='Asia/Jerusalem') - pd.Timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M')
-            stocks_df.at[index, 'date'] = current_date
-            graph_img_path, stock_info_df = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
-            
-            if not graph_img_path:
-                raise AirflowException(f"Failed to capture graph for {ticker_name}")
+            try:
+                current_date = (pd.Timestamp.now(tz='Asia/Jerusalem') - pd.Timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M')
+                stocks_df.at[index, 'date'] = current_date
+                graph_img_path, stock_info_df = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
                 
-            # Store the image path and stock info in the DataFrame
-            stocks_df.at[index, 'original_img_path'] = graph_img_path
-            
-            # Update stock information columns
-            if not stock_info_df.empty:
-                for col in new_columns:
-                    if col in stock_info_df.columns:
-                        stocks_df.at[index, col] = stock_info_df.iloc[0][col]
+                if graph_img_path:
+                    # Store the image path and stock info in the DataFrame
+                    stocks_df.at[index, 'original_img_path'] = graph_img_path
+                    
+                    # Update stock information columns
+                    if not stock_info_df.empty:
+                        for col in new_columns:
+                            if col in stock_info_df.columns:
+                                stocks_df.at[index, col] = stock_info_df.iloc[0][col]
+                else:
+                    failed_tickers.append(ticker_name)
+                    logging.warning(f"Failed to capture graph for {ticker_name}, continuing with next stock")
+                
+            except Exception as e:
+                failed_tickers.append(ticker_name)
+                logging.error(f"Error processing {ticker_name}: {str(e)}")
+                continue  # Continue with next stock instead of raising exception
 
         # Save the updated DataFrame back to the CSV file
         stocks_df.to_csv(filename, index=False)
         
+        if failed_tickers:
+            error_msg = f"Failed to process the following tickers: {', '.join(failed_tickers)}"
+            logging.error(error_msg)
+            # Raise exception only if all stocks failed
+            if len(failed_tickers) == len(stocks_df):
+                raise AirflowException(error_msg)
+        
     except Exception as e:
-        error_msg = f"Failed to process finviz capture for {ticker_name}: {str(e)}"
+        error_msg = f"Critical error in finviz capture process: {str(e)}"
         logging.error(error_msg)
         raise AirflowException(error_msg)
 
