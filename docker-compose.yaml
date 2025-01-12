@@ -45,11 +45,12 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.5.1}
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.7.3}
   build:
     context: .
     args:
       AIRFLOW_UID: ${AIRFLOW_UID:-50000}
+      AIRFLOW_GID: ${AIRFLOW_GID:-1000}
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -64,6 +65,7 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     AIRFLOW_UID: ${AIRFLOW_UID:-50000}
+    AIRFLOW_GID: ${AIRFLOW_GID:-1000}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -288,4 +290,4 @@ services:
 
 volumes:
   postgres-db-volume:
-    name: ${CONTAINER_PREFIX}-${POSTGRES_VOLUME_NAME}
+    name: ${COMPOSE_PROJECT_NAME:-airflow}_${POSTGRES_VOLUME_NAME:-postgres-db-volume}

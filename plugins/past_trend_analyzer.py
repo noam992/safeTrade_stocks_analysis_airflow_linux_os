@@ -25,14 +25,24 @@ def save_to_csv(df, filename):
 
 
 def get_stock_data(symbol, start_date, end_date):
-    data = yf.download(symbol, start=start_date, end=end_date)
-    if data.empty:
-        raise ValueError(f"No data available for {symbol} between {start_date} and {end_date}")
-    data = data.reset_index()
-    data = data.set_index('Date')
-    data.columns = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
-    data = data.drop('Adj Close', axis=1)
-    return data
+    try:
+        data = yf.download(symbol, start=start_date, end=end_date)
+        if data.empty:
+            raise ValueError(f"No data available for {symbol} between {start_date} and {end_date}")
+        
+        # Reset index and ensure consistent column names
+        data = data.reset_index()
+        data = data.set_index('Date')
+        
+        # Ensure we only keep required columns in correct order
+        required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        data = data[required_columns]
+        
+        return data
+        
+    except Exception as e:
+        logging.error(f"Error downloading data for {symbol}: {str(e)}")
+        raise
 
 
 def calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, min_gap):
@@ -44,6 +54,10 @@ def calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, m
         data = get_stock_data(symbol, start_date, end_date)
         marked_data, trend_metrics = identify_price_trends(data, min_gap, fluctuation_pct=0.02)
         
+        if trend_metrics.empty:
+            logging.warning(f"No trend metrics found for {symbol}")
+            return None
+            
         analysis_result = {
             'symbol': symbol,
             'last_up_trade_resistence_date': trend_metrics['last_up_trade_resistence_date'].iloc[0],
@@ -56,8 +70,9 @@ def calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, m
             'data': marked_data
         }
         
-    except ValueError as e:
+    except Exception as e:
         logging.error(f"Error processing {symbol}: {str(e)}")
+        return None
 
     end_time = datetime.now()
     duration = end_time - start_time
