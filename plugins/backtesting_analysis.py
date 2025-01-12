@@ -24,14 +24,24 @@ def save_to_csv(df, filename):
 
 
 def get_stock_data(symbol, start_date, end_date):
-    data = yf.download(symbol, start=start_date, end=end_date)
-    if data.empty:
-        raise ValueError(f"No data available for {symbol} between {start_date} and {end_date}")
-    data = data.reset_index()
-    data = data.set_index('Date')
-    data.columns = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
-    data = data.drop('Adj Close', axis=1)
-    return data
+    try:
+        data = yf.download(symbol, start=start_date, end=end_date)
+        if data.empty:
+            raise ValueError(f"No data available for {symbol} between {start_date} and {end_date}")
+        
+        # Reset index and ensure consistent column names
+        data = data.reset_index()
+        data = data.set_index('Date')
+        
+        # Ensure we only keep required columns in correct order
+        required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        data = data[required_columns]
+        
+        return data
+        
+    except Exception as e:
+        logging.error(f"Error downloading data for {symbol}: {str(e)}")
+        raise
 
 
 def calculate_sma(data, window):
@@ -83,8 +93,8 @@ def calculate_single_backtest_strategy(symbol, start_date, end_date):
 
         recommendation = {
             'symbol': symbol,
-            'EntryTime': trades['EntryTime'],
-            'ExitTime': trades['ExitTime'],
+            'EntryTime': trades['EntryTime'] if not trades.empty else None,
+            'ExitTime': trades['ExitTime'] if not trades.empty else None,
             'return': results['Return [%]'],
             'equity_final': results['Equity Final [$]'],
             'sharpe_ratio': results['Sharpe Ratio'],
@@ -97,8 +107,9 @@ def calculate_single_backtest_strategy(symbol, start_date, end_date):
             'data': data
         }
         
-    except ValueError as e:
+    except Exception as e:
         logging.error(f"Error processing {symbol}: {str(e)}")
+        return None
 
     end_time = datetime.now()
     duration = end_time - start_time

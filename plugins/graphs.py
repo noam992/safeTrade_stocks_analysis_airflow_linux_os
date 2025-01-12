@@ -23,6 +23,9 @@ def read_stocks_from_csv(filename: str) -> pd.DataFrame:
 
 def convert_value(value):
     """Convert string values to float, handling commas and suffixes (K, M, B)"""
+    if pd.isna(value):  # Add check for NaN values
+        return 0.0
+    
     if isinstance(value, (int, float)):
         return float(value)
     
@@ -40,7 +43,10 @@ def convert_value(value):
     elif value.endswith('B'):
         return float(value[:-1]) * 1_000_000_000
     
-    return float(value)
+    try:
+        return float(value)
+    except ValueError:  # Add error handling for invalid conversions
+        return 0.0
 
 
 def get_background_image(ticker: str) -> Union[Image.Image, None]:
@@ -171,31 +177,40 @@ def create_graph_from_single_ticker(row):
     sma20 = convert_value(row['sma_short_20'])
     sma50 = convert_value(row['sma_long_50'])
     price = convert_value(row['Price'])
-    max_sma = max(sma20, sma50, price)
-    min_sma = min(sma20, sma50, price)
     
-    # Calculate the difference between SMAs
-    sma_diff = abs(sma20 - sma50)
-    sma_avg = (sma20 + sma50) / 2
-    
-    # Adjust padding based on the difference between values
-    if sma_diff / sma_avg < 0.01:  # If difference is less than 1%
-        padding = sma_diff * 2
+    # Add safety checks for SMA values
+    if all(v > 0 for v in [sma20, sma50, price]):  # Only draw if all values are valid
+        max_sma = max(sma20, sma50, price)
+        min_sma = min(sma20, sma50, price)
+        
+        # Calculate the difference between SMAs
+        sma_diff = abs(sma20 - sma50)
+        sma_avg = (sma20 + sma50) / 2
+        
+        # Adjust padding based on the difference between values
+        if sma_diff / sma_avg < 0.01:  # If difference is less than 1%
+            padding = sma_diff * 2
+        else:
+            padding = sma_diff * 0.5
+        
+        # Draw the main bar up to SMA20 (solid purple)
+        ax4.bar(0, sma20 - (min_sma - padding), bottom=(min_sma - padding), width=bar_width, color='purple')
+        
+        # Draw the remaining part (transparent)
+        ax4.bar(0, (max_sma + padding) - sma20, bottom=sma20, width=bar_width, color='lightgray', alpha=0.3)
+        
+        # Add cut lines and labels for SMA values
+        for value, label in [(sma20, f'SMA20: {sma20:.2f}'), (sma50, f'SMA50: {sma50:.2f}'), (price, f'Price: {price:.2f}')]:
+            ax4.hlines(y=value, xmin=-0.25, xmax=0.25, color='gray', linestyles='--', linewidth=1)
+            ax4.text(-0.25, value, label, ha='right', va='center')
+        
+        ax4.set_ylim(min_sma - padding, max_sma + padding)
     else:
-        padding = sma_diff * 0.5
-    
-    # Draw the main bar up to SMA20 (solid purple)
-    ax4.bar(0, sma20 - (min_sma - padding), bottom=(min_sma - padding), width=bar_width, color='purple')
-    
-    # Draw the remaining part (transparent)
-    ax4.bar(0, (max_sma + padding) - sma20, bottom=sma20, width=bar_width, color='lightgray', alpha=0.3)
-    
-    # Add cut lines and labels for SMA values
-    for value, label in [(sma20, f'SMA20: {sma20:.2f}'), (sma50, f'SMA50: {sma50:.2f}'), (price, f'Price: {price:.2f}')]:
-        ax4.hlines(y=value, xmin=-0.25, xmax=0.25, color='gray', linestyles='--', linewidth=1)
-        ax4.text(-0.25, value, label, ha='right', va='center')
-    
-    ax4.set_ylim(min_sma - padding, max_sma + padding)
+        # If values are invalid, draw an empty bar
+        ax4.bar(0, 100, width=bar_width, color='lightgray', alpha=0.3)
+        ax4.text(0, 50, 'No SMA Data', ha='center', va='center')
+        ax4.set_ylim(0, 100)
+
     ax4.set_title('SMA')
 
     # 5. Past Trend Bar
