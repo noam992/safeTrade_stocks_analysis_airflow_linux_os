@@ -29,13 +29,26 @@ def get_stock_data(symbol, start_date, end_date):
         if data.empty:
             raise ValueError(f"No data available for {symbol} between {start_date} and {end_date}")
         
-        # Reset index and ensure consistent column names
-        data = data.reset_index()
-        data = data.set_index('Date')
+        # Create a copy
+        data = data.copy()
         
-        # Ensure we only keep required columns in correct order
+        # If data has MultiIndex columns, flatten them
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+        
+        # Ensure we have the required columns
         required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        
+        # Check if all required columns exist
+        missing_columns = set(required_columns) - set(data.columns)
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+        
+        # Select only the required columns in the correct order
         data = data[required_columns]
+        
+        # Remove any NaN values
+        data = data.dropna()
         
         return data
         
@@ -91,10 +104,14 @@ def calculate_single_backtest_strategy(symbol, start_date, end_date):
         sma_long = calculate_sma(data, 50)
         rsi = calculate_rsi(data, 14)
 
+        # Convert trades to list if not empty
+        entry_times = trades['EntryTime'].tolist() if not trades.empty else []
+        exit_times = trades['ExitTime'].tolist() if not trades.empty else []
+
         recommendation = {
             'symbol': symbol,
-            'EntryTime': trades['EntryTime'] if not trades.empty else None,
-            'ExitTime': trades['ExitTime'] if not trades.empty else None,
+            'EntryTime': entry_times,
+            'ExitTime': exit_times,
             'return': results['Return [%]'],
             'equity_final': results['Equity Final [$]'],
             'sharpe_ratio': results['Sharpe Ratio'],
@@ -152,21 +169,30 @@ def main(filename: str):
 # if __name__ == "__main__":
 #     end_date = datetime.now()
 #     start_date = end_date - timedelta(days=120)
-#     symbol = 'LEA'
+#     symbol = 'NVDA'
     
-#     recommendation = calculate_single_backtest_strategy(symbol, start_date, end_date)
+#     filename = 'assets/stocks_list.csv'
+#     main(filename)
+    # recommendation = calculate_single_backtest_strategy(symbol, start_date, end_date)
+    # print(recommendation)
+    # data = yf.download(symbol, start=start_date, end=end_date)
     
-#     # Create DataFrame with date and close price
-#     trade_data = pd.DataFrame({
-#         'Date': recommendation['data'].index,
-#         'Close': recommendation['data']['Close']
-#     })
-#     trade_data.set_index('Date', inplace=True)
+    # # Save downloaded data to CSV
+    # output_filename = f'data_{symbol}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}.csv'
+    # data.to_csv(output_filename)
+    # print(f'Data saved to {output_filename}')
+    
+    # # Create DataFrame with date and close price
+    # trade_data = pd.DataFrame({
+    #     'Date': recommendation['data'].index,
+    #     'Close': recommendation['data']['Close']
+    # })
+    # trade_data.set_index('Date', inplace=True)
 
-#     # Count rising trades using geometric average
-#     result_df = count_rising_trades_with_geometric(trade_data, window_size=5, threshold_percent=0.5)
+    # # Count rising trades using geometric average
+    # result_df = count_rising_trades_with_geometric(trade_data, window_size=5, threshold_percent=0.5)
     
-#     # Save results
-#     output_filename = f'{symbol}_rising_trades_geometric.csv'
-#     result_df.to_csv(output_filename)
-#     print(f'Rising trades analysis saved to {output_filename}')
+    # # Save results
+    # output_filename = f'{symbol}_rising_trades_geometric.csv'
+    # result_df.to_csv(output_filename)
+    # print(f'Rising trades analysis saved to {output_filename}')
