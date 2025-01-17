@@ -66,6 +66,10 @@ x-airflow-common:
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     AIRFLOW_UID: ${AIRFLOW_UID:-50000}
     AIRFLOW_GID: ${AIRFLOW_GID:-1000}
+    # Add your Google Drive environment variables here
+    GOOGLE_CREDENTIALS_JSON: ${GOOGLE_CREDENTIALS_JSON}
+    GOOGLE_CSV_FILE_URL: ${GOOGLE_CSV_FILE_URL}
+    GOOGLE_FOLDER_ID: ${GOOGLE_FOLDER_ID}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs

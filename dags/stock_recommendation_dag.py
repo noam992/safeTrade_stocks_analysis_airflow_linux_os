@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 import sys
 import os
+from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.header import Header
@@ -13,6 +14,8 @@ import smtplib
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv()
 
 # Add the parent directory to sys.path to import the main function
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -181,8 +184,8 @@ with DAG('stock_recommendation',
         op_kwargs={
             'file_type': 'csv',
             'file_dir': 'assets/stocks_list_filter.csv',
-            'drive_folder_id': 'https://docs.google.com/spreadsheets/d/1w1_v4Pc_joAh9ymCGri0jJVSSIg-_3NzBOpR62Mu37s/edit?gid=0#gid=0',
-            'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
+            'drive_folder_id': os.getenv('GOOGLE_CSV_FILE_URL'),
+            'credential_dir': f'assets/credentials/{os.getenv("GOOGLE_CREDENTIALS_JSON")}'
         }
     )
 
@@ -192,8 +195,8 @@ with DAG('stock_recommendation',
         op_kwargs={
             'file_type': 'img',
             'file_dir': 'assets/output',
-            'drive_folder_id': '1NyxrwJCL77pSmtyP_fIwAayt73KCIf_s',
-            'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
+            'drive_folder_id': os.getenv('GOOGLE_FOLDER_ID'),
+            'credential_dir': f'assets/credentials/{os.getenv("GOOGLE_CREDENTIALS_JSON")}'
         }
     )
 
