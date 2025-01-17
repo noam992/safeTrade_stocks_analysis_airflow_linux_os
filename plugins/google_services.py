@@ -121,26 +121,31 @@ def update_google_sheets(from_path, folder_id, credentials_path):
         try:
             # Extract spreadsheet ID from the folder_id URL
             spreadsheet_id = folder_id.split('/')[5]
+            print(spreadsheet_id)
+            
+            # First, get the sheet's metadata to confirm the sheet name
+            sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            sheet_name = sheet_metadata['sheets'][0]['properties']['title']  # Gets the first sheet's name
             
             # Read CSV file using csv module to properly handle quoted values
             with open(from_path, 'r', encoding='utf-8') as file:
                 csv_reader = csv.reader(file, quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 values = list(csv_reader)
             
-            # Clear existing content - using the correct sheet name
+            # Clear existing content - using the verified sheet name
             sheets_service.spreadsheets().values().clear(
                 spreadsheetId=spreadsheet_id,
-                range='list!A:Z'  # Changed from Sheet1 to list
+                range=f"'{sheet_name}'!A:Z"  # Properly formatted range with quotes
             ).execute()
             
-            # Update with new content - using the correct sheet name
+            # Update with new content - using the verified sheet name
             body = {
                 'values': values
             }
             
             result = sheets_service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range='list!A1',  # Changed from Sheet1 to list
+                range=f"'{sheet_name}'!A1",  # Properly formatted range with quotes
                 valueInputOption='RAW',
                 body=body
             ).execute()
@@ -178,5 +183,14 @@ def main(file_type, file_dir, drive_folder_id, credential_dir):
 
 # if __name__ == "__main__":
 
-#     # main(file_type="img", file_dir="assets\output", drive_folder_id="1NyxrwJCL77pSmtyP_fIwAayt73KCIf_s", credential_dir="assets\credentials\safe-trade-byai-1ad3bbad3477.json")
-#     main(file_type="csv", file_dir="assets\stocks_list_filter.csv", drive_folder_id="https://docs.google.com/spreadsheets/d/1w1_v4Pc_joAh9ymCGri0jJVSSIg-_3NzBOpR62Mu37s/edit?gid=0#gid=0", credential_dir="assets\credentials\safe-trade-byai-1ad3bbad3477.json")
+#     main(file_type="img",
+#          file_dir="assets/output",
+#          drive_folder_id="1lPtN3FxH9mcnkLujLrKERrB24h15eq_w",
+#          credential_dir="assets/credentials/safe-trade-app-byai-dea256e79356.json"
+#          )
+    # main(
+    #     file_type="csv",
+    #     file_dir="assets/stocks_list_filter.csv",
+    #     drive_folder_id="https://docs.google.com/spreadsheets/d/1w1_v4Pc_joAh9ymCGri0jJVSSIg-_3NzBOpR62Mu37s/edit?gid=0#gid=0",
+    #     credential_dir="assets/credentials/safe-trade-byai-1ad3bbad3477.json"
+    #     )
