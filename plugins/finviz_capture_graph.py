@@ -157,7 +157,7 @@ def get_stock_info(driver) -> pd.DataFrame:
 
 
 def capture_single_finviz_graph(ticker: str, image_folder: str):
-    scroll_amount = 500
+    scroll_amount = 300
     chrome_zoom = 1.75
 
     logging.info(f"Starting chart scan for {ticker}")
